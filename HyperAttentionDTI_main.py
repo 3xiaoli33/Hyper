@@ -20,12 +20,16 @@ import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, roc_auc_score, precision_score, recall_score, precision_recall_curve, auc
 
 
-def show_result(DATASET, label, Accuracy_List, Precision_List, Recall_List, AUC_List, AUPR_List):
+def show_result(DATASET, label, Accuracy_List, Precision_List, Recall_List, AUC_List, AUPR_List,Loss_List):
     Accuracy_mean, Accuracy_var = np.mean(Accuracy_List), np.var(Accuracy_List)
     Precision_mean, Precision_var = np.mean(Precision_List), np.var(Precision_List)
     Recall_mean, Recall_var = np.mean(Recall_List), np.var(Recall_List)
+    F1_mean = 2 * (Precision_mean * Recall_mean) / (Precision_mean + Recall_mean)
+    F1_var = 2 * ((Precision_var * Recall_mean ** 2 + Recall_var * Precision_mean ** 2) / (
+                Precision_mean + Recall_mean) ** 2)
     AUC_mean, AUC_var = np.mean(AUC_List), np.var(AUC_List)
     PRC_mean, PRC_var = np.mean(AUPR_List), np.var(AUPR_List)
+    Loss_mean, Loss_var = np.mean(Loss_List), np.var(Loss_List)
     print("The {} model's results:".format(label))
     with open("./{}/results.txt".format(DATASET), 'a') as f:
         f.write('Accuracy(std):{:.4f}({:.4f})'.format(Accuracy_mean, Accuracy_var) + '\n')
@@ -33,12 +37,16 @@ def show_result(DATASET, label, Accuracy_List, Precision_List, Recall_List, AUC_
         f.write('Recall(std):{:.4f}({:.4f})'.format(Recall_mean, Recall_var) + '\n')
         f.write('AUC(std):{:.4f}({:.4f})'.format(AUC_mean, AUC_var) + '\n')
         f.write('PRC(std):{:.4f}({:.4f})'.format(PRC_mean, PRC_var) + '\n')
+        f.write('F1Score(std):{:.4f}({:.4f})'.format(F1_mean, F1_var) + '\n')
+        f.write('Loss(std):{:.4f}({:.4f})'.format(Loss_mean, Loss_var) + '\n')
 
     print('Accuracy(std):{:.4f}({:.4f})'.format(Accuracy_mean, Accuracy_var))
     print('Precision(std):{:.4f}({:.4f})'.format(Precision_mean, Precision_var))
     print('Recall(std):{:.4f}({:.4f})'.format(Recall_mean, Recall_var))
     print('AUC(std):{:.4f}({:.4f})'.format(AUC_mean, AUC_var))
     print('PRC(std):{:.4f}({:.4f})'.format(PRC_mean, PRC_var))
+    print('F1Score(std):{:.4f}({:.4f})'.format(F1_mean, F1_var))
+    print('Loss(std):{:.4f}({:.4f})'.format(Loss_mean, Loss_var))
 
 
 def load_tensor(file_name, dtype):
@@ -93,7 +101,7 @@ def test_model(dataset_load, save_path, DATASET, LOSS, dataset="Train", label="b
     results = '{}_set--Loss:{:.5f};Accuracy:{:.5f};Precision:{:.5f};Recall:{:.5f};AUC:{:.5f};PRC:{:.5f}.' \
         .format(label, loss_test, Accuracy_test, Precision_test, Recall_test, AUC_test, PRC_test)
     print(results)
-    return results, Accuracy_test, Precision_test, Recall_test, AUC_test, PRC_test
+    return results, loss_test, Accuracy_test, Precision_test, Recall_test, AUC_test, PRC_test
 
 
 if __name__ == "__main__":
@@ -169,6 +177,7 @@ if __name__ == "__main__":
     Recall_List_stable = []
     AUC_List_stable = []
     AUPR_List_stable = []
+    Loss_List_stable = []
 
     for epoch in range(1, hp.Epoch + 1):
         train_pbar = tqdm(
@@ -199,7 +208,7 @@ if __name__ == "__main__":
         # 每隔一定epoch进行测试并记录结果
         if epoch % hp.Eval_freq == 0:
             print(f"正在评估模型在测试集上的表现...")
-            results, Accuracy_test, Precision_test, Recall_test, AUC_test, PRC_test = \
+            results, loss_test ,Accuracy_test, Precision_test, Recall_test, AUC_test, PRC_test = \
                 test_model(test_dataset_load, save_path, DATASET, Loss, dataset="Test", label=str(epoch))
 
             # 存储每次测试的指标
@@ -208,11 +217,12 @@ if __name__ == "__main__":
             Recall_List_stable.append(Recall_test)
             AUC_List_stable.append(AUC_test)
             AUPR_List_stable.append(PRC_test)
+            Loss_List_stable.append(loss_test)
 
             # 调用show_result函数来显示当前结果
             show_result(DATASET, "stable",
                         Accuracy_List_stable, Precision_List_stable, Recall_List_stable,
-                        AUC_List_stable, AUPR_List_stable)
+                        AUC_List_stable, AUPR_List_stable,Loss_List_stable)
 
     print(f'训练完成，耗时：{timeit.default_timer() - start:.2f}秒。')
 
